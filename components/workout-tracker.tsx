@@ -1,8 +1,6 @@
-// components/workout-tracker.tsx
-
 "use client";
 
-import { format } from "date-fns";
+import { format, startOfToday } from "date-fns";
 import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card } from "@/components/ui/card";
@@ -12,7 +10,21 @@ import type { Workout } from "@/services/workoutService";
 import { getWorkoutService } from "@/services/workoutServiceFactory";
 
 export default function WorkoutTracker() {
-  const [date, setDate] = useState<Date>(new Date());
+  // Initialize with startOfToday to ensure consistent date handling
+  const [date, setDate] = useState<Date>(() => {
+    const today = startOfToday();
+    // Ensure the date is created with the local timezone
+    return new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+      12, // set to noon to avoid timezone issues
+      0,
+      0,
+      0
+    );
+  });
+  
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const workoutService = getWorkoutService();
 
@@ -20,9 +32,10 @@ export default function WorkoutTracker() {
     const fetchWorkouts = async () => {
       try {
         const allWorkouts = await workoutService.getWorkouts();
-        // Filter workouts by selected date
+        // Use the normalized date format for comparison
+        const dateStr = format(date, "yyyy-MM-dd");
         const filteredWorkouts = allWorkouts.filter(
-          (workout) => workout.date === format(date, "yyyy-MM-dd")
+          (workout) => workout.date === dateStr
         );
         setWorkouts(filteredWorkouts);
       } catch (error) {
@@ -34,6 +47,23 @@ export default function WorkoutTracker() {
     fetchWorkouts();
   }, [date]);
 
+  // Create a handler for date selection to ensure consistent date handling
+  const handleDateSelect = (newDate: Date | undefined) => {
+    if (newDate) {
+      // Normalize the selected date
+      const normalizedDate = new Date(
+        newDate.getFullYear(),
+        newDate.getMonth(),
+        newDate.getDate(),
+        12, // set to noon to avoid timezone issues
+        0,
+        0,
+        0
+      );
+      setDate(normalizedDate);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
       <Card className="p-6">
@@ -43,7 +73,7 @@ export default function WorkoutTracker() {
             <Calendar
               mode="single"
               selected={date}
-              onSelect={(newDate) => newDate && setDate(newDate)}
+              onSelect={handleDateSelect}
               className="rounded-md border shadow mx-auto"
             />
             <WorkoutDisplay
